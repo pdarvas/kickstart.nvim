@@ -44,6 +44,9 @@ P.S. You can delete this when you're done too. It's your config now :)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    https://github.com/folke/lazy.nvim
 --    `:help lazy.nvim.txt` for more info
@@ -232,6 +235,7 @@ require('lazy').setup({
     branch = '0.1.x',
     dependencies = {
       'nvim-lua/plenary.nvim',
+      'nvim-telescope/telescope-ui-select.nvim',
       -- Fuzzy Finder Algorithm which requires local dependencies to be built.
       -- Only load if `make` is available. Make sure you have the system
       -- requirements installed.
@@ -313,6 +317,18 @@ vim.o.completeopt = 'menuone,noselect'
 -- NOTE: You should make sure your terminal supports this
 vim.o.termguicolors = true
 
+-- Use spaces instead of tabs
+vim.opt.expandtab = true
+
+-- Number of space characters inserted for indentation
+vim.opt.shiftwidth = 4
+
+-- Control how many spaces a tab counts for in case of soft tabstops
+vim.opt.softtabstop = 4
+
+-- Number of spaces that a <Tab> in the file counts for
+vim.opt.tabstop = 4
+
 -- [[ Basic Keymaps ]]
 
 -- Keymaps for better default experience
@@ -334,6 +350,7 @@ vim.keymap.set('n', 'n', 'nzz', {noremap = true, silent = true})
 vim.keymap.set('n', 'N', 'Nzz', {noremap = true, silent = true})
 vim.keymap.set('n', '<C-d>', '<C-d>zz', {noremap = true, silent = true})
 vim.keymap.set('n', '<C-u>', '<C-u>zz', {noremap = true, silent = true})
+vim.keymap.set('n', '<leader>p', '"0p', {noremap = true, silent = true})
 
 -- [[ Highlight on yank ]]
 -- See `:help vim.highlight.on_yank()`
@@ -357,7 +374,14 @@ require('telescope').setup {
       },
     },
   },
+  extensions = {
+    ["ui-select"] = {
+      require("telescope.themes").get_cursor({})
+    }
+  }
 }
+
+require("telescope").load_extension("ui-select")
 
 -- Enable telescope fzf native, if installed
 pcall(require('telescope').load_extension, 'fzf')
@@ -425,6 +449,7 @@ vim.keymap.set('n', '<leader>sg', require('telescope.builtin').live_grep, { desc
 vim.keymap.set('n', '<leader>sG', ':LiveGrepGitRoot<cr>', { desc = '[S]earch by [G]rep on Git Root' })
 vim.keymap.set('n', '<leader>sd', require('telescope.builtin').diagnostics, { desc = '[S]earch [D]iagnostics' })
 vim.keymap.set('n', '<leader>sr', require('telescope.builtin').resume, { desc = '[S]earch [R]esume' })
+vim.keymap.set('n', '<leader>sa', require('telescope.builtin').git_status, { desc = '[S]earch Git [A]dded files' } )
 
 -- [[ Configure Treesitter ]]
 -- See `:help nvim-treesitter`
@@ -448,9 +473,9 @@ vim.defer_fn(function()
       enable = true,
       keymaps = {
         init_selection = '<c-space>',
-        node_incremental = '<c-space>',
+        node_incremental = 'v',
         scope_incremental = '<c-s>',
-        node_decremental = '<M-space>',
+        node_decremental = 'V',
       },
     },
     textobjects = {
@@ -518,7 +543,7 @@ local on_attach = function(_, bufnr)
   end
 
   nmap('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
-  nmap('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
+  nmap('<leader>c', vim.lsp.buf.code_action, '[C]ode Action')
 
   nmap('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
   nmap('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
@@ -549,6 +574,7 @@ end
 require('which-key').register {
   ['<leader>c'] = { name = '[C]ode', _ = 'which_key_ignore' },
   ['<leader>d'] = { name = '[D]ocument', _ = 'which_key_ignore' },
+  ['<leader>f'] = { name = '[F]ile tree', _ = 'which_key_ignore' },
   ['<leader>g'] = { name = '[G]it', _ = 'which_key_ignore' },
   ['<leader>h'] = { name = '[H]arpoon', _ = 'which_key_ignore' },
   ['<leader>r'] = { name = '[R]ename', _ = 'which_key_ignore' },
@@ -583,7 +609,7 @@ local servers = {
   -- rust_analyzer = {},
   tsserver = {},
   -- html = { filetypes = { 'html', 'twig', 'hbs'} },
-
+  kotlin_language_server = {},
   lua_ls = {
     Lua = {
       workspace = { checkThirdParty = false },
@@ -619,11 +645,6 @@ mason_lspconfig.setup_handlers {
   end,
 }
 
-require'lspconfig'.kotlin_language_server.setup {
-  capabilities = capabilities,
-  on_attach = on_attach
-}
-
 -- [[ Configure nvim-cmp ]]
 -- See `:help cmp`
 local cmp = require 'cmp'
@@ -641,8 +662,8 @@ cmp.setup {
     completeopt = 'menu,menuone,noinsert',
   },
   mapping = cmp.mapping.preset.insert {
-    ['<C-n>'] = cmp.mapping.select_next_item(),
-    ['<C-p>'] = cmp.mapping.select_prev_item(),
+    -- ['<C-n>'] = cmp.mapping.select_next_item(),
+    -- ['<C-p>'] = cmp.mapping.select_prev_item(),
     ['<C-b>'] = cmp.mapping.scroll_docs(-4),
     ['<C-f>'] = cmp.mapping.scroll_docs(4),
     ['<C-Space>'] = cmp.mapping.complete {},
@@ -650,24 +671,24 @@ cmp.setup {
       behavior = cmp.ConfirmBehavior.Replace,
       select = true,
     },
-    ['<Tab>'] = cmp.mapping(function(fallback)
-      if cmp.visible() then
-        cmp.select_next_item()
-      elseif luasnip.expand_or_locally_jumpable() then
-        luasnip.expand_or_jump()
-      else
-        fallback()
-      end
-    end, { 'i', 's' }),
-    ['<S-Tab>'] = cmp.mapping(function(fallback)
-      if cmp.visible() then
-        cmp.select_prev_item()
-      elseif luasnip.locally_jumpable(-1) then
-        luasnip.jump(-1)
-      else
-        fallback()
-      end
-    end, { 'i', 's' }),
+    -- ['<Tab>'] = cmp.mapping(function(fallback)
+    --   if cmp.visible() then
+    --     cmp.select_next_item()
+    --   elseif luasnip.expand_or_locally_jumpable() then
+    --     luasnip.expand_or_jump()
+    --   else
+    --     fallback()
+    --   end
+    -- end, { 'i', 's' }),
+    -- ['<S-Tab>'] = cmp.mapping(function(fallback)
+    --   if cmp.visible() then
+    --     cmp.select_prev_item()
+    --   elseif luasnip.locally_jumpable(-1) then
+    --     luasnip.jump(-1)
+    --   else
+    --     fallback()
+    --   end
+    -- end, { 'i', 's' }),
   },
   sources = {
     { name = 'nvim_lsp' },
@@ -685,13 +706,13 @@ cmp.setup.cmdline('/', {
 })
 
 
-cmp.setup.cmdline(':', {
-  mapping = cmp.mapping.preset.cmdline(),
-  sources = cmp.config.sources({
-    { name = 'path' }
-  }, {
-      { name = 'cmdline' }
-    })
-})
+-- cmp.setup.cmdline(':', {
+--   mapping = cmp.mapping.preset.cmdline(),
+--   sources = cmp.config.sources({
+--     { name = 'path' }
+--   }, {
+--       { name = 'cmdline' }
+--     })
+-- })
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
